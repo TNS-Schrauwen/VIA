@@ -15,6 +15,9 @@ from family import Family
 from filters import *
 import pandas as pd
 
+def get_gt(series):
+    return series.str.split(':').str[0]
+
 #add_columns adds three columns to the dataFrame df containing info to be outputted for
 #candidate variants for a specific Family object fam and the relevant inheritance
 #model number modelno
@@ -158,49 +161,42 @@ def cmpd_het_model(df, fam):
 
 def xl_model(df, fam):
     newdf = df.copy()
-    x_df = filter_chr(newdf, "chrX")
+    x_df = filter_chr(newdf, "X")
     for person in fam.people:
         if person.affected:
             if not person.male:
                 return pd.DataFrame()
-            x_df_1 = filter_zyg(x_df, person.ID, "1/1")
-            x_df_2 = filter_1x_zyg(x_df, person.ID, "1:")
-            x_df = x_df_1.append(x_df_2)
+            gt = get_gt(x_df[person.ID])
+            x_df = x_df[gt.isin(["1", "1/1"])]
         if person.unaffected:
-            x_df_1 = exclude_zyg(x_df, person.ID, "1/1")
-            x_df_2 = exclude_1x_zyg(x_df, person.ID, "1:")
-            x_df = x_df_1.append(x_df_2)
+            gt = get_gt(x_df[person.ID])
+            x_df = x_df[~gt.isin(["1", "1/1"])]
             if person.male:
-                x_df_1 = filter_zyg(x_df, person.ID, "0/0")
-                x_df_2 = filter_1x_zyg(x_df, person.ID, "0:")
-                x_df = x_df_1.append(x_df_2)
+                x_df = x_df[gt.isin(["0", "0/0"])]
     if not fam.father.affected:
         x_df = filter_zyg(x_df, fam.mother.ID, "0/1")
 
     add_columns(x_df, fam, "xl")
-    return(x_df)
+    return x_df
 
 def xldn_model(df, fam):
     newdf = df.copy()
-    x_df = filter_chr(newdf, "chrX")
+    x_df = filter_chr(newdf, "X")
     if fam.mother.affected or fam.father.affected:
         return pd.DataFrame()
     if fam.child.female:
         return pd.DataFrame()
-    # filter child for all 0/1
     for person in fam.people:
         if person.affected:
             if not person.male:
                 return pd.DataFrame()
-            x_df_1 = filter_zyg(x_df, person.ID, "1/1")
-            x_df_2 = filter_1x_zyg(x_df, person.ID, "1:")
-            x_df = x_df_1.append(x_df_2)
+            gt = get_gt(x_df[person.ID])
+            x_df = x_df[gt.isin(["1", "1/1"])]
         if person.unaffected:
-            x_df_1 = filter_zyg(x_df, person.ID, "0/0")
-            x_df_2 = filter_1x_zyg(x_df, person.ID, "0:")
-            x_df = x_df_1.append(x_df_2)
+            gt = get_gt(x_df[person.ID])
+            x_df = x_df[~gt.isin(["1", "1/1"])]
     add_columns(x_df, fam, "xldn")
-    return(x_df)
+    return x_df
     
 
 # ar_model takes the data frame and Family object. Returns: a new data frame containing
@@ -210,7 +206,7 @@ def ar_model(df, fam):
     numAffected = 0
     newdf = df.copy()
     newdf = filter_AF(newdf, .005) 
-    newdf = filter_chr(newdf, "chrX", exclude=True)
+    newdf = filter_chr(newdf, "X", exclude=True)
     dpdf = pd.DataFrame()
     names = []
     for person in fam.people:
@@ -229,4 +225,3 @@ def ar_model(df, fam):
         newdf = filter_DP_Max(newdf, names, min_allelic_depth,0)
         add_columns(newdf, fam, "ar")  # adds on columns with family info
         return newdf
-    
